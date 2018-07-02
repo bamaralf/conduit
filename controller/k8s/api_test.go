@@ -410,3 +410,128 @@ status:
 		}
 	})
 }
+
+func TestGetOwnerKindAndName(t *testing.T) {
+
+	for _, tt := range []struct {
+		resources         []string
+		expectedOwnerKind string
+		expectedOwnerName string
+	}{
+		{
+			resources: []string{`
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: t2
+    pod-template-hash: "1935952067"
+  name: t2-5f79f964bc-d5jvf
+  namespace: conduit-tap-test
+  ownerReferences:
+  - apiVersion: extensions/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: t2-5f79f964bc
+    uid: 767df381-7e28-11e8-8d80-08002797106e
+  resourceVersion: "34306"
+  selfLink: /api/v1/namespaces/conduit-tap-test/pods/t2-5f79f964bc-d5jvf
+  uid: 76822d22-7e28-11e8-8d80-08002797106e
+status:
+  phase: Running`,
+				`
+apiVersion: extensions/v1beta1
+kind: ReplicaSet
+metadata:
+  labels:
+    app: t2
+    pod-template-hash: "1935952067"
+  name: t2-5f79f964bc
+  namespace: conduit-tap-test
+  ownerReferences:
+  - apiVersion: extensions/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Deployment
+    name: t2
+    uid: 767a4903-7e28-11e8-8d80-08002797106e
+  resourceVersion: "34308"
+  selfLink: /apis/extensions/v1beta1/namespaces/conduit-tap-test/replicasets/t2-5f79f964bc
+  uid: 767df381-7e28-11e8-8d80-08002797106e
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: t2
+      pod-template-hash: "1935952067"
+status:
+  availableReplicas: 1
+  fullyLabeledReplicas: 1
+  observedGeneration: 1
+  readyReplicas: 1
+  replicas: 1`,
+				`
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: t2
+  name: t2
+  namespace: conduit-tap-test
+  resourceVersion: "34310"
+  selfLink: /apis/extensions/v1beta1/namespaces/conduit-tap-test/deployments/t2
+  uid: 767a4903-7e28-11e8-8d80-08002797106e
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: t2
+status:
+  availableReplicas: 1
+  observedGeneration: 1
+  readyReplicas: 1
+  replicas: 1
+  updatedReplicas: 1`,
+			},
+			expectedOwnerKind: "Deployment",
+			expectedOwnerName: "t2",
+		},
+		{
+			resources: []string{`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: t1-b4f55d87f-98dbz
+  namespace: default
+  ownerReferences:
+  - apiVersion: extensions/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: t1-b4f55d87f
+    uid: 35aa4716-7bf0-11e8-8d80-08002797106e
+status:
+  phase: Running`,
+			},
+			expectedOwnerKind: "ReplicaSet",
+			expectedOwnerName: "t1-b4f55d87f",
+		},
+	} {
+		api, objs, err := newAPI(tt.resources)
+		if err != nil {
+			t.Fatalf("newAPI error: %s", err)
+		}
+
+		pod := objs[0].(*apiv1.Pod)
+		ownerKind, ownerName := api.GetOwnerKindAndName(pod)
+
+		if ownerKind != tt.expectedOwnerKind {
+			t.Fatalf("Expected kind to be [%s], got [%s]", tt.expectedOwnerKind, ownerKind)
+		}
+
+		if ownerName != tt.expectedOwnerName {
+			t.Fatalf("Expected kind to be [%s], got [%s]", tt.expectedOwnerKind, ownerKind)
+		}
+	}
+}
